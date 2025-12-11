@@ -1,0 +1,8 @@
+# Kütüphane Yönetim Sistemi - Gerekli Paketler
+# pip install -r requirements.txt
+# streamlit run kutuphane_arayuz.py    -- çalıştırmak için bunu yaz
+
+streamlit>=1.28.0
+pandas>=2.0.0
+plotly>=5.18.0
+psycopg2-binary>=2.9.9
