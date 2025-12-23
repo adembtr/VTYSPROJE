@@ -542,6 +542,26 @@ if menu == "🏠 Ana Sayfa (Dashboard)":
             df = pd.DataFrame(uyelik_data, columns=['Üyelik Tipi', 'Sayi'])
             fig = px.pie(df, values='Sayi', names='Üyelik Tipi', color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig, use_container_width=True)
+    
+    # FONKSİYON KULLANIMI: Kategori İstatistikleri
+    st.divider()
+    st.subheader("📈 FONKSİYON: Kategori Bazlı Kitap İstatistikleri")
+    st.info("📌 Bu bölüm **kategori_kitap_istatistik()** fonksiyonunu kullanmaktadır.")
+    
+    kategoriler = db.kategori_listele()
+    if kategoriler:
+        cols = st.columns(min(len(kategoriler), 4))
+        for idx, kat in enumerate(kategoriler[:4]):
+            with cols[idx % 4]:
+                istat = db.fonk_kategori_kitap_istatistik(kat[0])
+                if istat:
+                    st.markdown(f"**{kat[1]}**")
+                    st.metric("Toplam", istat[0])
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.metric("Rafta", istat[1], delta=None)
+                    with col_b:
+                        st.metric("Ödünçte", istat[2], delta=None)
 
 
 # =====================================================================
@@ -831,16 +851,28 @@ elif menu == "🔄 Ödünc İslemleri":
             gun_sayisi = st.number_input("Ödünc Süresi (Gün):", min_value=1, max_value=60, value=14)
         
         if kitap_options and st.button("📤 Ödünc Ver", type="primary"):
-            sonuc = db.odunc_ver(
-                uye_options[secili_uye],
-                kitap_options[secili_kitap],
-                personel_options[secili_personel],
-                gun_sayisi
-            )
-            if sonuc:
-                st.success(f"✅ Kitap ödünc verildi! (İslem No: {sonuc})")
-                st.info("📌 Tetikleyici kitabi otomatik olarak raftan cikardi.")
-                st.rerun()
+            # FONKSİYON KULLANIMI: Kitap müsaitlik kontrolü
+            kitap_kodu = kitap_options[secili_kitap]
+            if not db.fonk_kitap_musaitlik_kontrol(kitap_kodu):
+                st.error("❌ Bu kitap şu anda müsait değil!")
+            else:
+                # FONKSİYON KULLANIMI: Üyenin ödünç sayısı kontrolü
+                uye_no = uye_options[secili_uye]
+                odunc_sayisi = db.fonk_uye_odunc_sayisi(uye_no)
+                if odunc_sayisi >= 5:
+                    st.error(f"❌ Üyenin elinde zaten {odunc_sayisi} kitap var! (Maksimum: 5)")
+                else:
+                    sonuc = db.odunc_ver(
+                        uye_no,
+                        kitap_kodu,
+                        personel_options[secili_personel],
+                        gun_sayisi
+                    )
+                    if sonuc:
+                        st.success(f"✅ Kitap ödünc verildi! (İslem No: {sonuc})")
+                        st.info(f"📌 FONKSİYON: Üyenin yeni ödünç sayısı: {odunc_sayisi + 1}")
+                        st.info("📌 TETİKLEYİCİ: Kitap otomatik olarak raftan çıkarıldı.")
+                        st.rerun()
     
         with tab3:
                 st.subheader("📥 Kitap İade Al")
@@ -861,10 +893,18 @@ elif menu == "🔄 Ödünc İslemleri":
                     islem_options = {f"{i[2]} - {i[1]} ({i[3]}) (İşlem: {i[0]})": i[0] for i in aktif_islemler}
                     secili_islem = st.selectbox("İade Edilecek Kitap:", list(islem_options.keys()))
                     
+                    # FONKSİYON KULLANIMI: Gecikme cezası hesaplama
+                    islem_no = islem_options[secili_islem]
+                    ceza_tutari = db.fonk_gecikme_cezasi_hesapla(islem_no)
+                    if ceza_tutari > 0:
+                        st.warning(f"⚠️ FONKSİYON: Bu kitap için {ceza_tutari:.2f} TL gecikme cezası hesaplandı!")
+                    
                     if st.button("📥 İade Al", type="primary"):
-                        if db.odunc_iade(islem_options[secili_islem]):
+                        if db.odunc_iade(islem_no):
                             st.success("✅ Kitap iade alındı!")
-                            st.info("📌 Tetikleyiciler otomatik çalıştı (kitap rafa kondu, varsa ceza oluştu).")
+                            st.info("📌 TETİKLEYİCİ: Kitap otomatik olarak rafa kondu.")
+                            if ceza_tutari > 0:
+                                st.warning(f"📌 TETİKLEYİCİ: {ceza_tutari:.2f} TL gecikme cezası otomatik oluşturuldu!")
                             st.rerun()
                 else:
                     st.info("İade edilecek aktif ödünç yok.")
