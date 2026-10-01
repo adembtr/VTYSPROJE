@@ -13,6 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, date
 
+import os
 import sys
 sys.path.append('.')
 
@@ -27,12 +28,13 @@ class KutuphaneDB:
     """Kütüphane Yönetim Sistemi veritabani islemleri"""
     
     def __init__(self):
+        # Baglanti bilgileri ortam degiskenlerinden okunur (sifre koda yazilmaz)
         self.config = {
-            "host": "localhost",
-            "database": "kutuphane_db",
-            "user": "postgres",
-            "password": "adem6704",  # Kendi sifreni yaz
-            "port": "5432"
+            "host": os.environ.get("PGHOST", "localhost"),
+            "database": os.environ.get("PGDATABASE", "kutuphane_db"),
+            "user": os.environ.get("PGUSER", "postgres"),
+            "password": os.environ.get("PGPASSWORD", ""),
+            "port": os.environ.get("PGPORT", "5432"),
         }
         self.connection = None
         self.cursor = None
